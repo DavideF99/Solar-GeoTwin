@@ -6,11 +6,35 @@ from datetime import datetime
 import geemap
 import numpy as np
 import os
+import streamlit as st
+import json
 
 
 class GeoDataFetcher:
     def __init__(self, project_id):
         ee.Initialize(project=project_id)
+        self._authenticate()
+
+    def _authenticate(self):
+        # 1. Check if we are running on Streamlit Cloud
+        if "gcp_service_account" in st.secrets:
+            # Create a dictionary from the secrets
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            
+            # Use Service Account credentials for Earth Engine
+            credentials = ee.ServiceAccountCredentials(
+                creds_dict['client_email'], 
+                key_data=creds_dict['private_key']
+            )
+            ee.Initialize(credentials, project=self.project_id)
+            
+        else:
+            # 2. Local fallback (uses your local gcloud authentication)
+            try:
+                ee.Initialize(project=self.project_id)
+            except Exception:
+                ee.Authenticate()
+                ee.Initialize(project=self.project_id)
         
     def get_sentinel_composite(self, lon, lat, buffer_m, start_date, end_date):
         """Fetches a cloud-free median composite for a circular ROI."""
