@@ -12,27 +12,35 @@ import json
 
 class GeoDataFetcher:
     def __init__(self, project_id):
-        ee.Initialize(project=project_id)
+        self.project_id = project_id
+        # Trigger the specialized authentication
         self._authenticate()
 
     def _authenticate(self):
-        # 1. Check if we are running on Streamlit Cloud
+        # 1. Check for Streamlit Secrets (Production)
         if "gcp_service_account" in st.secrets:
-            # Create a dictionary from the secrets
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            
-            # Use Service Account credentials for Earth Engine
-            credentials = ee.ServiceAccountCredentials(
-                creds_dict['client_email'], 
-                key_data=creds_dict['private_key']
-            )
-            ee.Initialize(credentials, project=self.project_id)
-            
+            try:
+                # Access the TOML dictionary we created
+                info = st.secrets["gcp_service_account"]
+                
+                # Create credentials from the secret dictionary
+                # This is the "Key" that opens the Google Earth Engine door
+                credentials = ee.ServiceAccountCredentials(
+                    info['client_email'], 
+                    key_data=info['private_key']
+                )
+                
+                # Initialize with BOTH the credentials AND the project ID
+                ee.Initialize(credentials=credentials, project=self.project_id)
+            except Exception as e:
+                st.error(f"Cloud Auth Failed: {e}")
+        
+        # 2. Local Fallback (For your Mac M3)
         else:
-            # 2. Local fallback (uses your local gcloud authentication)
             try:
                 ee.Initialize(project=self.project_id)
             except Exception:
+                # This opens the browser window for local auth if needed
                 ee.Authenticate()
                 ee.Initialize(project=self.project_id)
         
