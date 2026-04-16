@@ -1,2 +1,5 @@
 .venv
 data/
+.streamlit/
+solar-geoai-dferreri45-fa9b986d4e05.json
+requirements_dev.txt
