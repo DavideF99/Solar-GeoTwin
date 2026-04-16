@@ -1,14 +1,11 @@
-# Base UI and Mapping
+# General libraries from standard PyPI
 streamlit
 leafmap
 matplotlib
 numpy
+earthengine-api
 
-# Core AI (CPU versions for Cloud Deployment)
---index-url https://download.pytorch.org/whl/cpu
+# AI libraries from the specific PyTorch CPU index
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
-
-# Geospatial Data
-earthengine-api
-# Add any specific helper libs you used in modules/
