@@ -74,3 +74,8 @@ Where:
 ├── requirements.txt     # Production dependencies
 └── README.md
 ```
+
+## 📈 Potential Upgrades
+
+- Temporal Expansion: Integrating LSTM layers to forecast seasonal yield fluctuations based on cloud-cover patterns.
+- Transmission Proximity: Integration of OpenStreetMap (OSM) data to weight suitability based on distance to the existing power grid.
