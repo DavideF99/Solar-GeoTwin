@@ -2,9 +2,11 @@ import streamlit as st
 import leafmap.foliumap as leafmap
 import torch
 import numpy as np
+import pandas as pd
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from modules.data_pipeline import GeoDataFetcher
 from modules.ai_engine import SolarUNet
 from modules.spatial_eng import SpatialProcessor
@@ -124,7 +126,7 @@ if run_btn:
     kpi1, kpi2, kpi3 = st.columns(3)
     kpi1.metric("Solar Resource", f"{annual_ghi:.1f} kWh/m²/y", help="NASA POWER 30-year average GHI.")
     kpi2.metric("Identified Area", f"{total_m2/10000:.2f} Hectares", help="Total land meeting slope and AI suitability criteria.")
-    kpi3.metric("Est. Generation", f"{annual_kwh/1e6:.2f} GWh/yr", help="Annual yield including performance losses.")
+    kpi3.metric("Est. Generation", f"{(annual_kwh * perf_ratio) / 1e6:.2f} GWh/yr", help="Annual yield including performance losses.")
 
     # Main Tabs for Visuals
     tab_vis, tab_data = st.tabs(["🗺️ Spatial Suitability", "📊 Technical Deep-Dive"])
@@ -134,15 +136,48 @@ if run_btn:
         with col_img1:
             st.subheader("Sentinel-2 RGB")
             st.image(np.clip(img_array[:,:,:3] * 3, 0, 1), use_container_width=True)
+
+        # Index 0 is transparent (for non-suitable), Index 1 is Neon Green
+        neon_green_cmap = ListedColormap(["#00000000", "#39FF14"])
             
         with col_img2:
             st.subheader("AI Suitability Mask")
             fig, ax = plt.subplots(figsize=(10, 10))
-            ax.imshow(np.clip(img_array[:,:,:3] * 3, 0, 1))
-            ax.imshow(binary_mask, alpha=0.5, cmap='Wistia')
+            # Background satellite image
+            ax.imshow(np.clip(img_array[:,:,:3] * 3, 0, 1)) 
+            # High-contrast mask overlay
+            ax.imshow(binary_mask, alpha=0.7, cmap=neon_green_cmap) 
             ax.axis('off')
             st.pyplot(fig)
+
+            # --- Coordinate Extraction Logic ---
+        with st.expander("📍 View Suitable Plot Coordinates"):
+            # Find all pixels where the AI identified suitability[cite: 3]
+            y_indices, x_indices = np.where(binary_mask == True)
             
+            # Geographic scaling (approximate for site-level display)
+            lat_per_m = 1.0 / 111320.0 
+            lon_per_m = 1.0 / (111320.0 * np.cos(np.radians(lat)))
+            
+            suitable_coords = []
+            # Calculate offset from center (index 127.5 is the center of a 256px patch)
+            for y, x in zip(y_indices, x_indices):
+                offset_y = (127.5 - y) * 10 # 10m resolution
+                offset_x = (x - 127.5) * 10
+                
+                p_lat = lat + (offset_y * lat_per_m)
+                p_lon = lon + (offset_x * lon_per_m)
+                suitable_coords.append({"Latitude": round(p_lat, 6), "Longitude": round(p_lon, 6)})
+            
+            # Display in a clean table format
+            df_coords = pd.DataFrame(suitable_coords)
+            st.write(f"Detected **{len(df_coords)}** suitable 10m x 10m plots.")
+            st.dataframe(df_coords, use_container_width=True, height=300)
+            
+            # Allow user to download the CSV (Great for industrial handovers!)
+            csv = df_coords.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Site Coordinates (CSV)", data=csv, file_name="suitable_plots.csv")
+
     with tab_data:
         st.subheader("Site Performance Metrics")
         st.markdown(f"""
@@ -157,4 +192,6 @@ st.divider()
 st.subheader("Interactive Context Explorer")
 m = leafmap.Map(center=[lat, lon], zoom=12)
 m.add_basemap("SATELLITE")
+# Highlight the analysis center on the context map
+m.add_marker(location=[lat, lon], tooltip="Analyzed Site Center")
 m.to_streamlit(height=500)
