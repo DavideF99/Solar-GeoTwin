@@ -3,6 +3,7 @@ import leafmap.foliumap as leafmap
 import torch
 import numpy as np
 import os
+from pathlib import Path
 import matplotlib.pyplot as plt
 from modules.data_pipeline import GeoDataFetcher
 from modules.ai_engine import SolarUNet
@@ -38,18 +39,21 @@ device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 def load_model():
     model = SolarUNet(in_channels=4, out_channels=1).to(device)
     
-    # Get the directory that THIS file (app.py) is in
-    base_path = os.path.dirname(__file__)
-    # Create the absolute path to the weights
-    weights_path = os.path.join(base_path, "models", "solar_unet_v1.pth")
+    # 1. Get the absolute path to the directory where app.py lives
+    current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
+    
+    # 2. Construct the path to the weights file
+    weights_path = current_dir / "models" / "solar_unet_v1.pth"
     
     try:
-        model.load_state_dict(torch.load(weights_path, map_location=device))
-        # Optional: Add a success message to the sidebar to confirm it worked!
-        # st.sidebar.success("✅ Model weights loaded.")
+        # Use the string version of the path for torch.load
+        model.load_state_dict(torch.load(str(weights_path), map_location=device))
+        # st.sidebar.success("✅ Model loaded successfully") # Optional confirmation
     except FileNotFoundError:
-        st.sidebar.warning(f"⚠️ Weights not found at {weights_path}")
-    
+        st.sidebar.warning(f"⚠️ Weights not found at: {weights_path}")
+    except Exception as e:
+        st.sidebar.error(f"Error loading model: {e}")
+        
     model.eval()
     return model
 
