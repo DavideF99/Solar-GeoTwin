@@ -1,5 +1,6 @@
 import ee
 import numpy as np
+import requests
 
 class SpatialProcessor:
     def __init__(self):

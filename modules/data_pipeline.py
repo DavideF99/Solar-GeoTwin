@@ -90,7 +90,36 @@ class GeoDataFetcher:
         else:
             print(f"Failed to fetch NASA data. Status: {response.status_code}")
             return pd.DataFrame() # Return empty DF to avoid crashing the rest of the script
+
+    def get_nasa_irradiance(self, lat, lon):
+        """
+        Fetches the 30-year average solar GHI from NASA POWER API.
+        Endpoint: Climatology (ANN - Annual average of daily GHI)
+        Returns: Float (kWh/m2/day)
+        """
+        url = "https://power.larc.nasa.gov/api/temporal/climatology/point"
+        params = {
+            "parameters": "ALLSKY_SFC_SW_DWN", 
+            "community": "RE",
+            "longitude": lon,
+            "latitude": lat,
+            "format": "JSON"
+        }
         
+        try:
+            # Use requests (already imported in your data_pipeline.py)
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                # ANN is the 30-year average of the daily GHI
+                ghi_daily_avg = data['properties']['parameter']['ALLSKY_SFC_SW_DWN']['ANN']
+                return ghi_daily_avg
+            else:
+                return 5.0  # Fallback: Globally reasonable average
+        except Exception as e:
+            print(f"NASA Climatology Error: {e}")
+            return 5.0
+
     def export_patches(self, image, lon, lat, area_name="region", patch_size=256, n_patches=40, output_dir='data'):
         """
         Extracts fixed-size patches by specifying scale and region.

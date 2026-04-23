@@ -43,7 +43,7 @@ st.sidebar.header("🧠 AI Configuration")
 threshold = st.sidebar.slider("AI Confidence Cutoff", 0.0, 1.0, 0.70) 
 
 # --- 4. Main Analysis Logic ---
-if st.sidebar.button("Run Global Analysis"):
+if st.sidebar.button("Run Analysis"):
     with st.spinner("Fetching Satellite Data & Running AI..."):
         
         # A. Data Ingestion: Pull Sentinel-2 satellite and SRTM terrain data
@@ -65,17 +65,22 @@ if st.sidebar.button("Run Global Analysis"):
         
         # Dynamic Irradiance logic: Northern Cape (~2280) vs Global Average (~1800)
         # In a production app, we would pull this live from NASA POWER API
-        site_ghi = 2282 if (20 < lon < 25 and -30 < lat < -25) else 1800
-        
-        # Calculate yield using our new SpatialProcessor function
-        # Formula: Area * Efficiency * Irradiance * Performance Ratio
+        # 1. Fetch live climatology data from NASA
+        with st.spinner("Fetching site-specific solar climate data from NASA..."):
+            daily_ghi = fetcher.get_nasa_irradiance(lat, lon)
+            annual_ghi = daily_ghi * 365.25 # Convert daily average to annual total
+
+        # 2. Display the metric in the sidebar for the user
+        st.sidebar.metric("NASA Annual Irradiance", f"{annual_ghi:.1f} kWh/m²/y")
+
+        # 3. Pass the dynamic value to your SpatialProcessor
         annual_kwh, total_m2 = processor.estimate_yield(
             binary_mask, 
-            avg_irradiance=site_ghi, 
-            resolution=10, # Sentinel-2 pixels are 10m
-            efficiency=0.20 # 20% panel efficiency
+            avg_irradiance=annual_ghi, # Now dynamic![cite: 1]
+            resolution=10, 
+            efficiency=0.20 
         )
-        
+                
         # E. UI Visualization
         col1, col2 = st.columns(2)
         with col1:

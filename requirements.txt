@@ -5,6 +5,7 @@ matplotlib
 numpy
 earthengine-api
 geemap
+requests
 
 # AI libraries from the specific PyTorch CPU index
 --extra-index-url https://download.pytorch.org/whl/cpu
