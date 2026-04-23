@@ -7,12 +7,17 @@ from modules.data_pipeline import GeoDataFetcher
 from modules.ai_engine import SolarUNet
 from modules.spatial_eng import SpatialProcessor
 
-# --- 1. Page Configuration ---
+# --- 1. Page Configuration & UI Theme ---
 st.set_page_config(page_title="Solar-GeoTwin | AI Site Selection", layout="wide")
-st.title("☀️ Solar-GeoTwin: Global Site Selection")
+
+# Add a professional CSS tweak to the sidebar for better contrast
 st.markdown("""
-    **Industrial Engineering Dashboard** | Transitioning from traditional site surveys to AI-driven spatial twins for renewable energy.
-""")
+    <style>
+    [data-testid="stSidebar"] {
+        background-color: #12141d;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- 2. Setup & Model Loading ---
 PROJECT_ID = 'solar-geoai-dferreri45'
@@ -20,7 +25,6 @@ device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 @st.cache_resource
 def load_model():
-    """Loads the U-Net model and caches it to prevent reloading on every interaction."""
     model = SolarUNet(in_channels=4, out_channels=1).to(device)
     try:
         model.load_state_dict(torch.load("models/solar_unet_v1.pth", map_location=device))
@@ -29,84 +33,104 @@ def load_model():
     model.eval()
     return model
 
-# Initialize our core classes
 model = load_model()
 fetcher = GeoDataFetcher(PROJECT_ID)
 processor = SpatialProcessor()
 
-# --- 3. Sidebar Controls ---
-st.sidebar.header("📍 Location Parameters")
-lon = st.sidebar.number_input("Longitude (East)", value=23.3, format="%.4f")
-lat = st.sidebar.number_input("Latitude (North)", value=-28.3, format="%.4f")
+# --- 3. Sidebar: Configuration & Methodology ---
+with st.sidebar:
+    st.image("https://img.icons8.com/fluency/96/solar-panel.png", width=80)
+    st.title("Solar-GeoTwin")
+    st.caption("AI-Driven Spatial Intelligence for Renewables")
+    
+    with st.expander("📍 Location Parameters", expanded=True):
+        lon = st.number_input("Longitude (East)", value=23.3, format="%.4f")
+        lat = st.number_input("Latitude (North)", value=-28.3, format="%.4f")
+    
+    with st.expander("⚙️ Engineering Settings", expanded=False):
+        threshold = st.slider("AI Confidence Cutoff", 0.0, 1.0, 0.70, help="Higher values reduce false positives in site selection.")
+        efficiency = st.number_input("Panel Efficiency", value=0.20, help="Standard commercial module efficiency (20%).")
+        perf_ratio = st.number_input("Performance Ratio", value=0.75, help="System losses (inverter, wiring, soiling).")
 
-st.sidebar.header("🧠 AI Configuration")
-threshold = st.sidebar.slider("AI Confidence Cutoff", 0.0, 1.0, 0.70) 
+    run_btn = st.button("🚀 Run Global Analysis", use_container_width=True)
+    
+    st.divider()
+    st.info("""
+    **Methodology:**
+    1. **Data:** Sentinel-2 & NASA POWER.
+    2. **AI:** Custom U-Net Segmentation.
+    3. **Logic:** Slope < 5° & Sparse Vegetation.
+    """)
 
-# --- 4. Main Analysis Logic ---
-if st.sidebar.button("Run Analysis"):
-    with st.spinner("Fetching Satellite Data & Running AI..."):
-        
-        # A. Data Ingestion: Pull Sentinel-2 satellite and SRTM terrain data
+# --- 4. Main Dashboard Header ---
+st.title("☀️ Global Site Selection Engine")
+st.markdown("Transitioning from traditional site surveys to **AI-driven spatial twins** for utility-scale solar prospecting.")
+
+# --- 5. Analysis Logic ---
+if run_btn:
+    with st.status("Initializing Spatial Analysis...", expanded=True) as status:
+        st.write("📡 Querying Google Earth Engine (Sentinel-2 + SRTM)...")
         raw = fetcher.get_sentinel_composite(lon, lat, 2000, "2024-01-01", "2024-12-31")
         processed = processor.calculate_metrics(raw)
         
-        # B. Image Preparation: Export the 256x256 patch for the U-Net
+        st.write("🧠 Executing U-Net Deep Learning Inference...")
         img_array = fetcher.export_single_patch(processed, lon, lat) 
-        
-        # C. Inference: Generate the probability map
-        # Convert (H,W,C) -> (C,H,W) and move to GPU/MPS
         input_tensor = torch.from_numpy(img_array.transpose(2, 0, 1)).unsqueeze(0).float().to(device)
         with torch.no_grad():
             output = model(input_tensor)
             prob_map = torch.sigmoid(output).squeeze().cpu().numpy()
         
-        # D. Regression: Energy Yield Calculation
-        binary_mask = prob_map > threshold
+        st.write("🌦️ Fetching NASA Climatology Data...")
+        daily_ghi = fetcher.get_nasa_irradiance(lat, lon)
         
-        # Dynamic Irradiance logic: Northern Cape (~2280) vs Global Average (~1800)
-        # In a production app, we would pull this live from NASA POWER API
-        # 1. Fetch live climatology data from NASA
-        with st.spinner("Fetching site-specific solar climate data from NASA..."):
-            daily_ghi = fetcher.get_nasa_irradiance(lat, lon)
-            annual_ghi = daily_ghi * 365.25 # Convert daily average to annual total
-
-        # 2. Display the metric in the sidebar for the user
-        st.sidebar.metric("NASA Annual Irradiance", f"{annual_ghi:.1f} kWh/m²/y")
-
-        # 3. Pass the dynamic value to your SpatialProcessor
+        # Convert daily average to annual total (using 365.25 for leap year accuracy)
+        annual_ghi = daily_ghi * 365.25
+        
+        binary_mask = prob_map > threshold
         annual_kwh, total_m2 = processor.estimate_yield(
             binary_mask, 
-            avg_irradiance=annual_ghi, # Now dynamic![cite: 1]
+            avg_irradiance=annual_ghi, 
             resolution=10, 
-            efficiency=0.20 
+            efficiency=efficiency 
         )
-                
-        # E. UI Visualization
-        col1, col2 = st.columns(2)
-        with col1:
+        status.update(label="Analysis Complete!", state="complete", expanded=False)
+
+    # --- 6. Results Visualization ---
+    # Top Row: High-Level KPIs
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric("Solar Resource", f"{annual_ghi:.1f} kWh/m²/y", help="NASA POWER 30-year average GHI.")
+    kpi2.metric("Identified Area", f"{total_m2/10000:.2f} Hectares", help="Total land meeting slope and AI suitability criteria.")
+    kpi3.metric("Est. Generation", f"{annual_kwh/1e6:.2f} GWh/yr", help="Annual yield including performance losses.")
+
+    # Main Tabs for Visuals
+    tab_vis, tab_data = st.tabs(["🗺️ Spatial Suitability", "📊 Technical Deep-Dive"])
+    
+    with tab_vis:
+        col_img1, col_img2 = st.columns(2)
+        with col_img1:
             st.subheader("Sentinel-2 RGB")
             st.image(np.clip(img_array[:,:,:3] * 3, 0, 1), use_container_width=True)
             
-        with col2:
-            st.subheader("AI Suitability Overlay")
+        with col_img2:
+            st.subheader("AI Suitability Mask")
             fig, ax = plt.subplots(figsize=(10, 10))
-            ax.imshow(np.clip(img_array[:,:,:3] * 3, 0, 1)) # Background
-            ax.imshow(binary_mask, alpha=0.5, cmap='Wistia') # Suitability Mask
+            ax.imshow(np.clip(img_array[:,:,:3] * 3, 0, 1))
+            ax.imshow(binary_mask, alpha=0.5, cmap='Wistia')
             ax.axis('off')
             st.pyplot(fig)
             
-        # F. Sidebar Metrics (The "Business Case")
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("📊 Estimated Yield")
-        st.sidebar.metric("Suitable Area", f"{total_m2/10000:.2f} Hectares")
-        st.sidebar.metric("Annual Generation", f"{annual_kwh/1e6:.2f} GWh/yr")
-        st.sidebar.caption(f"Based on {site_ghi} kWh/m²/yr solar resource.")
-            
-        st.success(f"Site analysis complete for {lat}, {lon}")
+    with tab_data:
+        st.subheader("Site Performance Metrics")
+        st.markdown(f"""
+        - **Coordinates:** {lat}, {lon}
+        - **Primary Constraint:** Slope < 5° (Industrial Engineering Standard)
+        - **Secondary Constraint:** NDVI < 0.4 (Minimized Environmental Impact)
+        - **Calculated Yield:** {annual_kwh:,.0f} kWh per annum.
+        """)
 
-# --- 5. Global Context Map ---
+# --- 7. Interactive Background Map ---
 st.divider()
-st.subheader("Interactive Context Map")
+st.subheader("Interactive Context Explorer")
 m = leafmap.Map(center=[lat, lon], zoom=12)
 m.add_basemap("SATELLITE")
 m.to_streamlit(height=500)
