@@ -65,10 +65,10 @@ with st.sidebar:
 
         if is_trained_area:
             st.success("📍 **Trained Region Detected**")
-            st.caption("The AI is highly calibrated for this geography. Optimal range: **0.70 — 0.85**.")
+            st.caption("The AI is calibrated for this geography.")
         else:
             st.warning("🌐 **Out-of-Distribution Area**")
-            st.caption("AI not trained on this terrain. Try a lower confidence range: **0.40 — 0.55**.")
+            st.caption("AI not trained on this terrain. Try a lower confidence range, using the 'Confidence Heatmap 🔥' tab as a guide.")
 
         threshold = st.slider(
             "AI Confidence Cutoff", 
