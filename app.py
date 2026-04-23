@@ -23,13 +23,32 @@ st.markdown("""
 PROJECT_ID = 'solar-geoai-dferreri45'
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
+# @st.cache_resource
+# def load_model():
+#     model = SolarUNet(in_channels=4, out_channels=1).to(device)
+#     try:
+#         model.load_state_dict(torch.load("models/solar_unet_v1.pth", map_location=device)) 
+#     except FileNotFoundError:
+#         st.sidebar.warning("⚠️ Weights not found. Using uninitialized model.")
+#     model.eval()
+#     return model
+
 @st.cache_resource
 def load_model():
     model = SolarUNet(in_channels=4, out_channels=1).to(device)
+    
+    # Get the directory that THIS file (app.py) is in
+    base_path = os.path.dirname(__file__)
+    # Create the absolute path to the weights
+    weights_path = os.path.join(base_path, "models", "solar_unet_v1.pth")
+    
     try:
-        model.load_state_dict(torch.load("models/solar_unet_v1.pth", map_location=device))
+        model.load_state_dict(torch.load(weights_path, map_location=device))
+        # Optional: Add a success message to the sidebar to confirm it worked!
+        # st.sidebar.success("✅ Model weights loaded.")
     except FileNotFoundError:
-        st.sidebar.warning("⚠️ Weights not found. Using uninitialized model.")
+        st.sidebar.warning(f"⚠️ Weights not found at {weights_path}")
+    
     model.eval()
     return model
 
