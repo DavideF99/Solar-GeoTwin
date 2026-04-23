@@ -32,7 +32,7 @@ def main():
     }
 
     # 5. Training Loop 
-    EPOCHS = 50
+    EPOCHS = 70
     print("Starting Training...")
     
     for epoch in range(EPOCHS):
@@ -64,10 +64,10 @@ def main():
         print(f"Epoch [{epoch+1}/{EPOCHS}] | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
 
     # 6. Save the Weights (Crucial for Phase 4)
-    torch.save(model.state_dict(), "models/solar_unet_v1.pth")
+    torch.save(model.state_dict(), "models/solar_unet_v2.pth")
 
     # 7. Save history to JSON
-    with open("models/training_history_v1.json", "w") as f:
+    with open("models/training_history_v2.json", "w") as f:
         json.dump(history, f)
         
     print("✅ Model and training history saved to /models")

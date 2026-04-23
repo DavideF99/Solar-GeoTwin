@@ -31,7 +31,7 @@ device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 def load_model():
     model = SolarUNet(in_channels=4, out_channels=1).to(device)
     current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
-    weights_path = current_dir / "models" / "solar_unet_v1.pth"
+    weights_path = current_dir / "models" / "solar_unet_v2.pth"
     
     try:
         model.load_state_dict(torch.load(str(weights_path), map_location=device))
