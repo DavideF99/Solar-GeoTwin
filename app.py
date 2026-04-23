@@ -2,6 +2,7 @@ import streamlit as st
 import leafmap.foliumap as leafmap
 import torch
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from modules.data_pipeline import GeoDataFetcher
 from modules.ai_engine import SolarUNet
